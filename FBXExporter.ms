@@ -1,5 +1,3 @@
--- if the floater is open close it and reopen a new one 
-try (closeRolloutFloater expFloater) catch()
 --strcut cannot put into dictionary (cannot convert to system.obj)
 -- structure for presetlist item
 --struct preset_struct (Meshlist=#(), Savepath="",Filename="")
@@ -7,6 +5,7 @@ try (closeRolloutFloater expFloater) catch()
 global preset_dic=dotNetObject "System.Collections.Hashtable"
 global presetholder=getNodeByName "PresetHolder"
 global preset_item=#("None")
+global selectionsets_item=#("") 
 
 --print presetfolder
 function createdummy=(
@@ -271,12 +270,16 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 	editText expPathTxt "" text:"C:\\Program Files\\Autodesk\\3ds Max 2012" pos:[8,60] fieldWidth: 216 height:18
 	button browseBtn "Browse" pos:[232,56] width:88 height:24
 	--selection sets
-	GroupBox grpset "Selection Sets" pos:[8,88] width:312 height:220
-	MultiListBox meshExpLB "Mesh List:" pos:[16,110]  width:296 height:9
-	button addmeshBtn "Add Selected Mesh" pos:[20,255] width:130 height:20
-	button removemeshBtn "Remove Selected Mesh" pos:[180,255] width:130 height:20
-	button importxmlBtn "Import File" pos:[20,280] width:130 height:20
-	button exportxmlBtn "Export File" pos:[180,280] width:130 height:20
+	GroupBox grpset "Selection" pos:[8,88] width:312 height:220
+	checkBox SelectionSetsCheck "Using Selection Sets:" pos:[16,119] width:132 checked:true
+	dropDownlist selectionsets pos:[150,116] items:selectionsets_item width: 150 height: 41
+	checkBox NameSpaceCheck "Using Name Space" pos:[16,139] width:132 checked:true
+	CheckBox SceneSelcetionCheck "Using Scene Selection" pos:[16,159] width:132 checked:true
+	--MultiListBox meshExpLB "Mesh List:" pos:[16,110]  width:296 height:9
+	--button addmeshBtn "Add Selected Mesh" pos:[20,255] width:130 height:20
+	--button removemeshBtn "Remove Selected Mesh" pos:[180,255] width:130 height:20
+	--button importxmlBtn "Import File" pos:[20,280] width:130 height:20
+	button exportxmlBtn "Export Selection" pos:[180,280] width:130 height:20
 	--Preset
 	dropDownlist presetList "Export Setting Preset:" pos:[16,350] items:preset_item width:200 height:41
 	editText presetname "New Presetname" pos:[20,400] width:280 height:15 text: "Put the preset name here..."
@@ -359,13 +362,15 @@ loadDatafromXML()
 
 utility LT_FBX_Exporter "LT_FBX_Exporter"
 (
-	local expFloater;
+	local expFloater
 
 	button expBtn "FBX_Exporter" width:120;
 	
 	on expBtn pressed do (
+		-- if the floater is open close it and reopen a new one 
+		try (closeRolloutFloater expFloater) catch()
 		expFloater=newRolloutFloater "FbxExporter" 336 630
-		addRollout FBXrollout expFloater;	
+		addRollout FBXrollout expFloater
 	)
 	
 
