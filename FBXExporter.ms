@@ -5,7 +5,8 @@
 global preset_dic=dotNetObject "System.Collections.Hashtable"
 global presetholder=getNodeByName "PresetHolder"
 global preset_item=#("None")
-global selectionsets_item=#("") 
+global selectionsets_item=#("None")
+global objlist=#() 
 
 --print presetfolder
 function createdummy=(
@@ -61,6 +62,21 @@ function loadDatafromXML=(
 		--print preset_dic.item[preset_Name]
 	)
 )
+
+function updateSelSetList source:undefined=(
+	source=selectionSets
+	return source
+)
+
+
+function resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck=(
+	checkbx0.checked=false
+	checkbx1.checked=false
+	checkbx2.checked=false
+	checkbx3.checked=false
+)
+
+
 
 function selectitemonlist source:undefined item_index:undefined=(
 	clearSelection()
@@ -271,15 +287,18 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 	button browseBtn "Browse" pos:[232,56] width:88 height:24
 	--selection sets
 	GroupBox grpset "Selection" pos:[8,88] width:312 height:220
-	checkBox SelectionSetsCheck "Using Selection Sets:" pos:[16,119] width:132 checked:true
-	dropDownlist selectionsets pos:[150,116] items:selectionsets_item width: 150 height: 41
-	checkBox NameSpaceCheck "Using Name Space" pos:[16,139] width:132 checked:true
-	CheckBox SceneSelcetionCheck "Using Scene Selection" pos:[16,159] width:132 checked:true
+	checkBox selectionsetscheck "Using Selection Sets:" pos:[16,120] width:132 checked:false
+	dropDownlist selectionsetslist pos:[150,117] items:selectionsets_item width: 160 height: 30
+	checkBox namespacecheck "Using Name Space:" pos:[16,150] width:132 checked:false
+	EditText namespaceTxt pos:[148,150] fieldWidth:100 height:10
+	button namespaceBtn "Select" pos:[260,149] width:50 height:20
+	CheckBox sceneselectioncheck "Using Scene Selection" pos:[16,180] width:132 checked:true
+	CheckBox presetcheck "Using Preset" pos:[16,210] width:132 checked:false
 	--MultiListBox meshExpLB "Mesh List:" pos:[16,110]  width:296 height:9
 	--button addmeshBtn "Add Selected Mesh" pos:[20,255] width:130 height:20
 	--button removemeshBtn "Remove Selected Mesh" pos:[180,255] width:130 height:20
 	--button importxmlBtn "Import File" pos:[20,280] width:130 height:20
-	button exportxmlBtn "Export Selection" pos:[180,280] width:130 height:20
+	button exportxmlBtn "Export Selection" pos:[105,250] width:130 height:25
 	--Preset
 	dropDownlist presetList "Export Setting Preset:" pos:[16,350] items:preset_item width:200 height:41
 	editText presetname "New Presetname" pos:[20,400] width:280 height:15 text: "Put the preset name here..."
@@ -296,21 +315,85 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		--set the default unit to centimeter when initialize the gui
 		UnitList.selection=5
 		systemunitsetup index:5 
+		namespaceTxt.enabled=false
+		namespaceBtn.enabled=false
+		selectionsetslist.enabled=false
+	)
+	on selectionsetscheck changed status do(
+		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
+		selectionsetscheck.checked=true
+		selectionsetscheck.enabled=true
+		namespaceTxt.enabled=false
+		namespaceBtn.enabled=false
+		selectionsetslist.enabled=true
+		--update list
+		for i in 1 to selectionSets.count do (
+			appendIfUnique selectionsets_item (GetNamedSelSetName i)
+			selectionsetslist.items=selectionsets_item
+		)
+
 	)
 
-	on meshEXPLB selectionEnd do(
-		selectitemonlist source:meshExpLB.items item_index:meshExpLB.selection
+	on selectionsetslist selected index do (
+		objlist=#()
+		if index>1 then(
+			tempset = selectionsets[index-1]
+			select tempset
+			for i in 1 to tempset.count do(
+				appendIfUnique objlist tempset[i].name
+			)
+		)
+		else(
+			clearSelection()
+			objlist=#()
+		)
+		print objlist
 	)
-	on addmeshBtn pressed do(
-		meshExpLB.items=additemtolist source:meshExpLB.items
+
+	on namespacecheck changed status do(
+		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
+		namespacecheck.checked=true
+		namespacecheck.enabled=true
+		namespaceTxt.enabled=true
+		namespaceBtn.enabled=true
+		selectionsetslist.enabled=false
 	)
-	on removemeshBtn pressed do(
+
+	on namespaceBtn pressed do(
+		print "123"
+	)
+
+
+	on sceneselectioncheck changed status do (
+		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
+		sceneselectioncheck.checked=true
+		sceneselectioncheck.enabled=true
+		namespaceTxt.enabled=false
+		namespaceBtn.enabled=false
+		selectionsetslist.enabled=false
+	)
+	on presetcheck changed status do(
+		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
+		presetcheck.checked=true
+		presetcheck.enabled=true
+		namespaceTxt.enabled=false
+		namespaceBtn.enabled=false
+		selectionsetslist.enabled=false
+	)
+
+	--on meshEXPLB selectionEnd do(
+		--selectitemonlist source:meshExpLB.items item_index:meshExpLB.selection
+	--)
+	--on addmeshBtn pressed do(
+		--meshExpLB.items=additemtolist source:meshExpLB.items
+	--)
+	--on removemeshBtn pressed do(
 		--return bitarray
-		meshExpLB.items=removeitemfromlist source:meshExpLB.items item_index:meshExpLB.selection
-	)
-	on importxmlBtn pressed do(
-		meshExpLB.items=readDataOnXML source:meshExpLB.items
-	)
+		--meshExpLB.items=removeitemfromlist source:meshExpLB.items item_index:meshExpLB.selection
+	--)
+	--on importxmlBtn pressed do(
+		--meshExpLB.items=readDataOnXML source:meshExpLB.items
+	--)
 	on exportxmlBtn pressed do (
 		saveDataOnXML source: meshExpLB.items
 	)
