@@ -1,8 +1,10 @@
 --strcut cannot put into dictionary (cannot convert to system.obj)
 -- structure for presetlist item
 --struct preset_struct (Meshlist=#(), Savepath="",Filename="")
--- dictionaty for presetlist 
+-- dictionary for presetlist 
 global preset_dic=dotNetObject "System.Collections.Hashtable"
+--dictionary for prefix management
+global prefix_dic=dotNetObject "System.Collections.HashTable"
 global presetholder=getNodeByName "PresetHolder"
 global preset_item=#("None")
 global selectionsets_item=#("None")
@@ -12,7 +14,6 @@ global objlist=#()
 function createdummy=(
 	presetholder=getNodeByName "PresetHolder"
 	if presetholder==undefined then(
-		print "123"
 		presetholder=Dummy pos: [0,0,0] name:"PresetHolder" scale:[5,5,5]
 		--hide and freeze the PresetHolder
 		hide presetholder
@@ -63,9 +64,53 @@ function loadDatafromXML=(
 	)
 )
 
-function updateSelSetList source:undefined=(
-	source=selectionSets
-	return source
+
+function registercallbacks=(
+	callbacks.addScript  #NamedSelSetCreated "FBXrollout.UpdateSelSets()" id:#mycallbacks
+	callbacks.addScript  #NamedSelSetDeleted "FBXrollout.UpdateSelSets()" id:#mycallbacks
+	callbacks.addScript  #NamedSelSetRenamed "FBXrollout.UpdateSelSets()" id:#mycallbacks
+	--selectby scene selection /add callbacks for selectionchange
+	callbacks.addScript  #selectionSetChanged "FBXrollout.UpdateSceneSel()" id:#mycallbacks
+	--callbacks.show()
+)
+
+function removecallbacks=(
+	callbacks.removeScripts #NamedSelSetCreated id:#mycallbacks
+	callbacks.removeScripts #selectionSetChanged id:#mycallbacks
+)
+
+
+function SelectbySelsets index:undefined=(
+	objlist=#()
+	if index>1 then(
+		tempset = selectionsets[index-1]
+		select tempset
+		for i in 1 to tempset.count do(
+			appendIfUnique objlist tempset[i].name
+		)
+	)
+	--select none
+	else(
+		clearSelection()
+		objlist=#()
+	)
+)
+
+function SelectbyNamespace prefixname:undefined= (
+	objlist=#()
+	clearSelection()
+	append prefixname ":"
+	prefixobj = execute ("$'"+prefixname+"*'")
+	if prefixobj !=undefined then (
+		select prefixobj
+		for i in 1 to prefixobj.count do(
+			appendIfUnique objlist prefixobj[i].name
+		)
+	)
+	else(
+		clearSelection()
+		objlist=#()
+	)
 )
 
 
@@ -77,59 +122,13 @@ function resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck 
 )
 
 
-
-function selectitemonlist source:undefined item_index:undefined=(
-	clearSelection()
-	objlist=#()
-	for i in item_index do (
-		obj=getNodeByName source[i]
-		if obj!=undefined then(
-		append objlist obj
-		)
-		else(
-			messageBox("cannot find the object"+source[i])
-		)
-	)
-	select objlist
-
-)
-
-
-function additemtolist source: undefined=(
-	if selection.count>0 then (
-		for i in selection do (
-			added=appendIfUnique source i.name
-			if added==false then(
-				messageBox(i.name+ "  exsits")
-			)
-		)
-		return source
-	)
-	else (
-		return source
-	)
-)
-
-function removeitemfromlist source: undefined item_index: undefined=(
-		if source.count>0 and item_index.numberset>0 then(
-			item_arr=item_index as array
-			--remove item from array
-			i=item_arr.count
-			while (i>0) do (
-				deleteItem source item_arr[i]
-				i=i-1
-			)
-		)
-		return source
-)
-
-function saveDataOnXML source:undefined=(
+function saveDataOnXML checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck=(
 	fname=getSaveFileName caption:"Save XML File:" types:"XML files (*.xml)|*.xml"
 	if fname !=undefined then(
 		xmlDoc = dotNetObject "System.Xml.XmlDocument"
 		xmlRoot = xmlDoc.CreateElement ("SelectionSets")
 		xmlDoc.appendChild xmlRoot
-		for i in source do (
+		for i in objlist do (
 			ObjNode=xmlDoc.CreateElement "Attribute"
 			ObjNode.SetAttribute "ItemName" i
 			xmlRoot.appendChild ObjNode
@@ -188,7 +187,7 @@ function UpdatePresetOnXML=(
 
 
 
-function AddPresetList source:undefined meshlist:undefined savepath:undefined filename:undefined preset_name:undefined=(
+function AddPresetList source:undefined savepath:undefined filename:undefined preset_name:undefined=(
 	if maxFilePath !=undefined then(
 		if preset_name.count>0 then(
 			exists=appendIfUnique source preset_name
@@ -196,7 +195,7 @@ function AddPresetList source:undefined meshlist:undefined savepath:undefined fi
 				messageBox("Preset name exists")
 				return source
 			)
-			tempitem=#(filename, savepath, meshlist)
+			tempitem=#(filename, savepath, objlist)
 			preset_dic.Add preset_name tempitem
 			presetholder.Preset_Handle=UpdatePresetOnXML()
 			return source
@@ -242,14 +241,49 @@ function RenamePresetList source:undefined selection:undefined selected:undefine
 	
 )
 
-function exportFBX output:undefined meshlist:undefined=(
-	objlist=#()
-	clearSelection()
-	for i in meshlist do (
+function RemovePrefix  =(
+	prefix=""
+	prefixname_list = #();
+	select_list=#()
+	for i in objlist do(
 		obj=getNodeByName(i)
-		append objlist obj
+		append select_list obj
 	)
-	select objlist
+	select select_list
+	--print select_list
+	for i in select_list do(
+		prefixArray = filterString i.name ":"
+		if prefixArray.count>1 then(
+			i.name = prefixArray[prefixArray.count]
+			for i in 1 to prefixArray.count-1 do (
+				prefix=prefix+prefixArray[i]+":"
+			)
+			print prefix
+			prefix_dic.Add i.name prefix
+		)
+	)
+)
+
+function RecoverPrefix =(
+	select_list=#()
+	for i in objlist do (
+		obj=getNodeByName(i)
+		append select_list obj
+	)
+	it=prefix_dic.GetEnumerator()
+	while it.MoveNext() do(
+		obj=getNodeByName(it.current.key)
+		obj.name=it.current.value+obj.name
+		print obj.name
+		--print it.current.key 
+		--print it.current.value
+	)
+
+)
+
+function exportFBX output:undefined meshlist:undefined=(
+	--remove the prefix 
+	RemovePrefix()
 	-- default export animation
 	FbxExporterSetParam "Animation" True
 	FbxExporterSetParam "BakeAnimation" True
@@ -262,7 +296,8 @@ function exportFBX output:undefined meshlist:undefined=(
 	FbxExporterSetParam "UpAxis" "Y"
 
 	exportFile output #noPrompt selectedOnly:True using:FBXEXP
-
+	--add the prefix back
+	RecoverPrefix()
 )
 
 function systemunitsetup index:undefined=(
@@ -277,16 +312,16 @@ function systemunitsetup index:undefined=(
 	)
 )
 
+global FBXrollout
 
-
-rollout FBXrollout "FBX Export Tool" width: 328 height: 620
+rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 (
 	editText fileName "Filename" pos:[8,8] width:312 height:16
 	label exportPathLabel "Export Path:" pos:[16,40] width:200 height:20 
 	editText expPathTxt "" text:"C:\\Program Files\\Autodesk\\3ds Max 2012" pos:[8,60] fieldWidth: 216 height:18
 	button browseBtn "Browse" pos:[232,56] width:88 height:24
 	--selection sets
-	GroupBox grpset "Selection" pos:[8,88] width:312 height:220
+	GroupBox grpset "Selection" pos:[8,88] width:312 height:190
 	checkBox selectionsetscheck "Using Selection Sets:" pos:[16,120] width:132 checked:false
 	dropDownlist selectionsetslist pos:[150,117] items:selectionsets_item width: 160 height: 30
 	checkBox namespacecheck "Using Name Space:" pos:[16,150] width:132 checked:false
@@ -294,22 +329,48 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 	button namespaceBtn "Select" pos:[260,149] width:50 height:20
 	CheckBox sceneselectioncheck "Using Scene Selection" pos:[16,180] width:132 checked:true
 	CheckBox presetcheck "Using Preset" pos:[16,210] width:132 checked:false
-	--MultiListBox meshExpLB "Mesh List:" pos:[16,110]  width:296 height:9
-	--button addmeshBtn "Add Selected Mesh" pos:[20,255] width:130 height:20
-	--button removemeshBtn "Remove Selected Mesh" pos:[180,255] width:130 height:20
-	--button importxmlBtn "Import File" pos:[20,280] width:130 height:20
-	button exportxmlBtn "Export Selection" pos:[105,250] width:130 height:25
+	button exportxmlBtn "Save as XML File" pos:[55,235] width:230 height:25
 	--Preset
-	dropDownlist presetList "Export Setting Preset:" pos:[16,350] items:preset_item width:200 height:41
-	editText presetname "New Presetname" pos:[20,400] width:280 height:15 text: "Put the preset name here..."
-	button addpreset "Add" pos: [40,430] width: 88 height: 24 tooltip: "Save above setting to the preset"
-	button renamepreset "Rename" pos: [170,430] width:88 height:24 tooltip: "Rename the current preset"
-	button removepreset "Remove" pos: [224,366] width: 88 height:24 tooltip: "Remove the current  preset"
-	groupBox grpExport "Preset" pos:[8,328] width:312 height:160
-	groupBox grpUnitSetup "System Unit Setup:" pos:[8,490] width:312 height:60
-	label UnitSetupLabel "1 Unit = 1.0" pos:[70,515] 
-	dropDownlist UnitList "" pos:[138,512] width:150 height:41 items:#("Inches","Feet","Miles","Millimeters","Centimeters","Meters","Kilometers")
-	button expBtn "Export File" pos:[16,560] width:296 height:30
+	dropDownlist presetList "Export Setting Preset:" pos:[16,310] items:preset_item width:200 height:41
+	editText presetname "New Presetname" pos:[20,365] width:280 height:15 text: "Put the preset name here..."
+	button addpreset "Add" pos: [55,400] width: 88 height: 24 tooltip: "Save above setting to the preset"
+	button renamepreset "Rename" pos: [185,400] width:88 height:24 tooltip: "Rename the current preset"
+	button removepreset "Remove" pos: [224,326] width: 88 height:24 tooltip: "Remove the current  preset"
+	groupBox grpExport "Preset" pos:[8,290] width:312 height:160
+	groupBox grpUnitSetup "System Unit Setup:" pos:[8,460] width:312 height:60
+	label UnitSetupLabel "1 Unit = 1.0" pos:[60,485] 
+	dropDownlist UnitList "" pos:[128,482] width:150 height:41 items:#("Inches","Feet","Miles","Millimeters","Centimeters","Meters","Kilometers")
+	button expBtn "Export File" pos:[16,535] width:296 height:30
+
+
+	function UpdateSelSets =(
+	--update list
+	selectionsets_item=#("None")
+	for i in 1 to selectionSets.count do (
+		appendIfUnique selectionsets_item (GetNamedSelSetName i)
+		)
+	selectionsetslist.items=selectionsets_item
+	--print selectionsetslist.items
+	)
+
+	function UpdateSceneSel =(
+		--print "callbacks"
+		if sceneselectioncheck.checked then (
+			--update sceneselection
+			objlist=#()
+			selobj=selection
+			if selobj != undefined then(
+				for i in 1 to selobj.count do(
+					appendIfUnique objlist selobj[i].name
+				)
+			)
+			else(
+				objlist=#()
+				clearSelection()
+			)
+			print objlist
+		)
+	)
 
 	on FBXrollout open do (
 		--set the default unit to centimeter when initialize the gui
@@ -318,6 +379,18 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		namespaceTxt.enabled=false
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
+		--register callbacks for selectionsets
+		registercallbacks()
+		--initialize the list for selectionsets
+		UpdateSelSets()
+		--initialize the objlist for sceneselection
+		UpdateSceneSel()
+	)
+
+	on FBXrollout close do (
+		--remove callbacks for selectionsets
+		removecallbacks()
+
 	)
 	on selectionsetscheck changed status do(
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
@@ -326,28 +399,16 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		namespaceTxt.enabled=false
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=true
-		--update list
-		for i in 1 to selectionSets.count do (
-			appendIfUnique selectionsets_item (GetNamedSelSetName i)
-			selectionsetslist.items=selectionsets_item
-		)
+		--update current selectionSets
+		SelectbySelsets index: selectionsetslist.selection
+		--reset namespace
+		namespaceTxt.text=""
 
 	)
 
+
 	on selectionsetslist selected index do (
-		objlist=#()
-		if index>1 then(
-			tempset = selectionsets[index-1]
-			select tempset
-			for i in 1 to tempset.count do(
-				appendIfUnique objlist tempset[i].name
-			)
-		)
-		else(
-			clearSelection()
-			objlist=#()
-		)
-		print objlist
+		SelectbySelsets index:index
 	)
 
 	on namespacecheck changed status do(
@@ -356,11 +417,15 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		namespacecheck.enabled=true
 		namespaceTxt.enabled=true
 		namespaceBtn.enabled=true
+		--update current namespace
+		SelectbyNamespace prefixname:namespaceTxt.text
+		--reset selectionsetlist to none
 		selectionsetslist.enabled=false
+		selectionsetslist.selection=1
 	)
 
 	on namespaceBtn pressed do(
-		print "123"
+		SelectbyNamespace prefixname:namespaceTxt.text
 	)
 
 
@@ -371,6 +436,11 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		namespaceTxt.enabled=false
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
+		--reset selectionsetlist to none
+		selectionsetslist.enabled=false
+		selectionsetslist.selection=1
+		--reset namespace
+		namespaceTxt.text=""
 	)
 	on presetcheck changed status do(
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
@@ -380,22 +450,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
 	)
-
-	--on meshEXPLB selectionEnd do(
-		--selectitemonlist source:meshExpLB.items item_index:meshExpLB.selection
-	--)
-	--on addmeshBtn pressed do(
-		--meshExpLB.items=additemtolist source:meshExpLB.items
-	--)
-	--on removemeshBtn pressed do(
-		--return bitarray
-		--meshExpLB.items=removeitemfromlist source:meshExpLB.items item_index:meshExpLB.selection
-	--)
-	--on importxmlBtn pressed do(
-		--meshExpLB.items=readDataOnXML source:meshExpLB.items
-	--)
 	on exportxmlBtn pressed do (
-		saveDataOnXML source: meshExpLB.items
+		saveDataOnXML checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck
 	)
 	on browseBtn pressed do(
 		p=getSavePath caption:"Defined Output Path" initialDir:expPathTxt.text
@@ -405,7 +461,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 	)
 
 	on addpreset pressed do (
-		presetList.items=AddPresetList source: presetList.items meshlist:meshExpLB.items savepath:expPathTxt.text filename:fileName.text preset_name:presetname.text
+		presetList.items=AddPresetList source: presetList.items savepath:expPathTxt.text filename:fileName.text preset_name:presetname.text
 	)
 
 	on presetList selected index do(
@@ -431,7 +487,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 	on expBtn pressed do (
 		outputpath= expPathTxt.text + "\\" + filename.text
 		print outputpath
-		exportFBX output: outputpath meshlist: meshExpLB.items
+		exportFBX output: outputpath
 	)
 
 	on UnitList selected index do(
@@ -441,7 +497,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 620
 )
 
 createdummy()
-loadDatafromXML()	
+loadDatafromXML()
+
 
 utility LT_FBX_Exporter "LT_FBX_Exporter"
 (
@@ -452,7 +509,7 @@ utility LT_FBX_Exporter "LT_FBX_Exporter"
 	on expBtn pressed do (
 		-- if the floater is open close it and reopen a new one 
 		try (closeRolloutFloater expFloater) catch()
-		expFloater=newRolloutFloater "FbxExporter" 336 630
+		expFloater=newRolloutFloater "FbxExporter" 336 610
 		addRollout FBXrollout expFloater
 	)
 	
