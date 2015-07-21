@@ -8,7 +8,6 @@ global prefix_dic=dotNetObject "System.Collections.HashTable"
 --default export path
 global defaultpath=pathConfig.getProjectSubDirectory 3
 global presetholder=getNodeByName "PresetHolder"
-global preset_item=#("None")
 global selectionsets_item=#("None")
 global objlist=#() 
 
@@ -36,8 +35,13 @@ function createdummy=(
 )
 
 function loadDatafromXML=(
+	--reset dictionay and read data from current dummy
+	--initialize data and initialize presetlist
+	preset_dic.clear()
+	preset_item=#("None")
+	--read data
 	strxml=presetholder.Preset_Handle
-	print strxml
+	--print strxml
 	xmlDoc = dotNetObject "System.Xml.XmlDocument"
 	--load xml file from string store on the scene obj
 	xmlDoc.loadXml(strxml)
@@ -47,6 +51,8 @@ function loadDatafromXML=(
 	for i=0 to preset_Node.count-1 do(
 		tempitem=#()
 		preset_Name=(preset_Node.ItemOf(i)).getAttribute "PresetName"
+		--update presetlist
+		--print preset_Name
 		append preset_item preset_Name
 		filename_Node=preset_Node.ItemOf[i].getElementsByTagName "FileName"
 		--filename_node list have on child only
@@ -62,8 +68,10 @@ function loadDatafromXML=(
 		append tempitem save_Path
 		append tempitem meshlist
 		preset_dic.Add preset_Name tempitem
+
 		--print preset_dic.item[preset_Name]
 	)
+	print preset_item
 )
 
 
@@ -119,24 +127,23 @@ function SelectbyNamespace prefixname:undefined= (
 function SelectbyPresetlist presetname:undefined=(
 	if presetname != "None" then(
 		tempitem=preset_dic.item[presetname]
-		--print tempitem
 		--unpack item #(filename, savepath, meshlist)
 		FBXrollout.fileName.text=tempitem[1]
 		FBXrollout.expPathTxt.text=tempitem[2]
 		if FBXrollout.presetcheck.checked then (
 			objlist=tempitem[3]
-				--select objlist 
+			--select objlist 
 			clearSelection()
 			select_list=#()
 			for i in objlist do (
 				obj=getNodeByName(i)
 				append select_list obj
-				print select_list
+				--print select_list
 			)
 			select select_list
 		)
 	)
-	else(
+	if presetname == "None" and FBXrollout.presetcheck.checked then(
 		clearSelection()
 		objlist=#()
 		FBXrollout.fileName.text=""
@@ -194,8 +201,8 @@ function UpdatePresetOnXML=(
 	xmlDoc.appendChild xmlRoot
 	it=preset_dic.GetEnumerator()
 	while it.MoveNext() do(
-		print it.current.key 
-		print it.current.value
+		--print it.current.key 
+		--print it.current.value
 		preset_Node=xmlDoc.CreateElement "Preset"
 		preset_Node.SetAttribute "PresetName" it.current.key
 		xmlRoot.appendChild preset_node
@@ -359,7 +366,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	CheckBox presetcheck "Using Preset" pos:[16,210] width:132 checked:false
 	button exportxmlBtn "Save as XML File" pos:[55,235] width:230 height:25
 	--Preset
-	dropDownlist presetList "Export Setting Preset:" pos:[16,310] items:preset_item width:200 height:41
+	dropDownlist presetList "Export Setting Preset:" pos:[16,310] items:#("None") width:200 height:41
 	editText presetname "New Presetname" pos:[20,365] width:280 height:15 text: "Put the preset name here..."
 	button addpreset "Add" pos: [55,400] width: 88 height: 24 tooltip: "Save above setting to the preset"
 	button renamepreset "Rename" pos: [185,400] width:88 height:24 tooltip: "Rename the current preset"
@@ -396,7 +403,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 				objlist=#()
 				clearSelection()
 			)
-			print objlist
+			--print objlist
 		)
 	)
 
@@ -407,6 +414,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		namespaceTxt.enabled=false
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
+		--update presetList
+		presetList.items=preset_item
 		--register callbacks for selectionsets
 		registercallbacks()
 		--initialize the list for selectionsets
@@ -520,9 +529,6 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 
 )
 
-createdummy()
-loadDatafromXML()
-
 
 utility LT_FBX_Exporter "LT_FBX_Exporter"
 (
@@ -533,6 +539,8 @@ utility LT_FBX_Exporter "LT_FBX_Exporter"
 	on expBtn pressed do (
 		-- if the floater is open close it and reopen a new one 
 		try (closeRolloutFloater expFloater) catch()
+		createdummy()
+		loadDatafromXML()
 		expFloater=newRolloutFloater "FbxExporter" 336 610
 		addRollout FBXrollout expFloater
 	)
