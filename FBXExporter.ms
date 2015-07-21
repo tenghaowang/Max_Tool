@@ -5,6 +5,8 @@
 global preset_dic=dotNetObject "System.Collections.Hashtable"
 --dictionary for prefix management
 global prefix_dic=dotNetObject "System.Collections.HashTable"
+--default export path
+global defaultpath=pathConfig.getProjectSubDirectory 3
 global presetholder=getNodeByName "PresetHolder"
 global preset_item=#("None")
 global selectionsets_item=#("None")
@@ -79,14 +81,14 @@ function removecallbacks=(
 	callbacks.removeScripts #selectionSetChanged id:#mycallbacks
 )
 
-
+--there is no same name object allowed to exist in the scene
 function SelectbySelsets index:undefined=(
 	objlist=#()
 	if index>1 then(
 		tempset = selectionsets[index-1]
 		select tempset
 		for i in 1 to tempset.count do(
-			appendIfUnique objlist tempset[i].name
+			append objlist tempset[i].name
 		)
 	)
 	--select none
@@ -96,6 +98,7 @@ function SelectbySelsets index:undefined=(
 	)
 )
 
+--there is no same name object allowed to exist in the scene
 function SelectbyNamespace prefixname:undefined= (
 	objlist=#()
 	clearSelection()
@@ -104,7 +107,7 @@ function SelectbyNamespace prefixname:undefined= (
 	if prefixobj !=undefined then (
 		select prefixobj
 		for i in 1 to prefixobj.count do(
-			appendIfUnique objlist prefixobj[i].name
+			append objlist prefixobj[i].name
 		)
 	)
 	else(
@@ -113,6 +116,33 @@ function SelectbyNamespace prefixname:undefined= (
 	)
 )
 
+function SelectbyPresetlist presetname:undefined=(
+	if presetname != "None" then(
+		tempitem=preset_dic.item[presetname]
+		--print tempitem
+		--unpack item #(filename, savepath, meshlist)
+		FBXrollout.fileName.text=tempitem[1]
+		FBXrollout.expPathTxt.text=tempitem[2]
+		if FBXrollout.presetcheck.checked then (
+			objlist=tempitem[3]
+				--select objlist 
+			clearSelection()
+			select_list=#()
+			for i in objlist do (
+				obj=getNodeByName(i)
+				append select_list obj
+				print select_list
+			)
+			select select_list
+		)
+	)
+	else(
+		clearSelection()
+		objlist=#()
+		FBXrollout.fileName.text=""
+		FBXrollout.expPathTxt.text=defaultpath
+	)
+)
 
 function resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck=(
 	checkbx0.checked=false
@@ -156,6 +186,7 @@ function readDataOnXML source:undefined=(
 		return source
 	)
 )
+
 function UpdatePresetOnXML=(
 	-- UpdatePresetOnXML--
 	xmlDoc = dotNetObject "System.Xml.XmlDocument"
@@ -242,8 +273,6 @@ function RenamePresetList source:undefined selection:undefined selected:undefine
 )
 
 function RemovePrefix  =(
-	prefix=""
-	prefixname_list = #();
 	select_list=#()
 	for i in objlist do(
 		obj=getNodeByName(i)
@@ -253,51 +282,50 @@ function RemovePrefix  =(
 	--print select_list
 	for i in select_list do(
 		prefixArray = filterString i.name ":"
+		--prefix exist
 		if prefixArray.count>1 then(
+			prefix=""
 			i.name = prefixArray[prefixArray.count]
 			for i in 1 to prefixArray.count-1 do (
 				prefix=prefix+prefixArray[i]+":"
 			)
-			print prefix
+			--print prefix
 			prefix_dic.Add i.name prefix
 		)
 	)
 )
 
 function RecoverPrefix =(
-	select_list=#()
-	for i in objlist do (
-		obj=getNodeByName(i)
-		append select_list obj
-	)
 	it=prefix_dic.GetEnumerator()
 	while it.MoveNext() do(
 		obj=getNodeByName(it.current.key)
 		obj.name=it.current.value+obj.name
-		print obj.name
-		--print it.current.key 
-		--print it.current.value
 	)
-
+	prefix_dic.clear()
 )
 
 function exportFBX output:undefined meshlist:undefined=(
-	--remove the prefix 
-	RemovePrefix()
-	-- default export animation
-	FbxExporterSetParam "Animation" True
-	FbxExporterSetParam "BakeAnimation" True
-	FbxExporterSetParam "BakeResampleAnimation" True
-	--mesh export options
-	FbxExporterSetParam "Skin" True
-	FbxExporterSetParam "SmoothingGroups" True
-	--use 2011 file version
-	FbxExporterSetparam "FileVersion" "FBX201100"
-	FbxExporterSetParam "UpAxis" "Y"
+	if objlist.count>0 then (
+		--remove the prefix 
+		RemovePrefix()
+		-- default export animation
+		FbxExporterSetParam "Animation" True
+		FbxExporterSetParam "BakeAnimation" True
+		FbxExporterSetParam "BakeResampleAnimation" True
+		--mesh export options
+		FbxExporterSetParam "Skin" True
+		FbxExporterSetParam "SmoothingGroups" True
+		--use 2011 file version
+		FbxExporterSetparam "FileVersion" "FBX201100"
+		FbxExporterSetParam "UpAxis" "Y"
 
-	exportFile output #noPrompt selectedOnly:True using:FBXEXP
-	--add the prefix back
-	RecoverPrefix()
+		exportFile output #noPrompt selectedOnly:True using:FBXEXP
+		--add the prefix back
+		RecoverPrefix()
+	)
+	else(
+		messageBox("There is no object selected!")
+	)
 )
 
 function systemunitsetup index:undefined=(
@@ -318,7 +346,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 (
 	editText fileName "Filename" pos:[8,8] width:312 height:16
 	label exportPathLabel "Export Path:" pos:[16,40] width:200 height:20 
-	editText expPathTxt "" text:"C:\\Program Files\\Autodesk\\3ds Max 2012" pos:[8,60] fieldWidth: 216 height:18
+	editText expPathTxt "" text:defaultpath pos:[8,60] fieldWidth: 216 height:18
 	button browseBtn "Browse" pos:[232,56] width:88 height:24
 	--selection sets
 	GroupBox grpset "Selection" pos:[8,88] width:312 height:190
@@ -441,6 +469,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		selectionsetslist.selection=1
 		--reset namespace
 		namespaceTxt.text=""
+		--update scene selection
+		UpdateSceneSel()
 	)
 	on presetcheck changed status do(
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
@@ -449,6 +479,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		namespaceTxt.enabled=false
 		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
+		--update Preset
+		SelectbyPresetlist presetname:presetlist.selected
 	)
 	on exportxmlBtn pressed do (
 		saveDataOnXML checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck
@@ -465,15 +497,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	)
 
 	on presetList selected index do(
-		preset_name=presetlist.items[index]
-		if preset_name != "None" then(
-			tempitem=preset_dic.item[preset_name]
-			print tempitem
-			--unpack item #(filename, savepath, meshlist)
-			fileName.text=tempitem[1]
-			expPathTxt.text=tempitem[2]
-			meshExpLB.items=tempitem[3]
-		)
+		SelectbyPresetlist presetname:presetlist.selected
 	)
 
 	on Removepreset pressed do (
