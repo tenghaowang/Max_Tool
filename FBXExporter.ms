@@ -9,6 +9,7 @@ global prefix_dic=dotNetObject "System.Collections.HashTable"
 global defaultpath=pathConfig.getProjectSubDirectory 3
 global presetholder=getNodeByName "PresetHolder"
 global selectionsets_item=#("None")
+global preset_item=#("None")
 global objlist=#() 
 
 --print presetfolder
@@ -38,7 +39,6 @@ function loadDatafromXML=(
 	--reset dictionay and read data from current dummy
 	--initialize data and initialize presetlist
 	preset_dic.clear()
-	preset_item=#("None")
 	--read data
 	strxml=presetholder.Preset_Handle
 	--print strxml
