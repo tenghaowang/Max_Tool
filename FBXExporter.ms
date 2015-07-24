@@ -9,6 +9,7 @@ global prefix_dic=dotNetObject "System.Collections.HashTable"
 global defaultpath=pathConfig.getProjectSubDirectory 3
 global presetholder=getNodeByName "PresetHolder"
 global selectionsets_item=#("None")
+global namespace_item=#("None")
 global preset_item=#("None")
 global objlist=#() 
 
@@ -38,6 +39,7 @@ function createdummy=(
 function loadDatafromXML=(
 	--reset dictionay and read data from current dummy
 	--initialize data and initialize presetlist
+	preset_item=#("None")
 	preset_dic.clear()
 	--read data
 	strxml=presetholder.Preset_Handle
@@ -71,7 +73,7 @@ function loadDatafromXML=(
 
 		--print preset_dic.item[preset_Name]
 	)
-	print preset_item
+	--print preset_item
 )
 
 
@@ -82,12 +84,15 @@ function registercallbacks=(
 	--selectby scene selection /add callbacks for selectionchange
 	callbacks.addScript  #selectionSetChanged "FBXrollout.UpdateSceneSel()" id:#mycallbacks
 	--callbacks.show()
+	--callbacks.addScript #sceneNodeAdded "addobj()" id:#mycallbacks
 )
 
 function removecallbacks=(
 	callbacks.removeScripts #NamedSelSetCreated id:#mycallbacks
 	callbacks.removeScripts #selectionSetChanged id:#mycallbacks
+	--callbacks.removeScripts #sceneNodeAdded id:#mycallbacks
 )
+
 
 --there is no same name object allowed to exist in the scene
 function SelectbySelsets index:undefined=(
@@ -106,13 +111,29 @@ function SelectbySelsets index:undefined=(
 	)
 )
 
+function UpdateNamespaceList=(
+	namespace_item=#("None")
+	allsceneobj=execute ("$*")
+	for obj in allsceneobj do (
+		prefixArray = filterString obj.name ":"
+		--if prefix exsit
+		if prefixArray.count>1 then (
+			prefix=""
+			for i in 1 to prefixArray.count-1 do (
+				prefix= prefix + prefixArray[i]+ ":"
+			)
+			appendIfUnique namespace_item prefix
+		)
+	)
+)
+
 --there is no same name object allowed to exist in the scene
-function SelectbyNamespace prefixname:undefined= (
+function SelectbyNamespace index:undefined= (
 	objlist=#()
-	clearSelection()
-	append prefixname ":"
-	prefixobj = execute ("$'"+prefixname+"*'")
-	if prefixobj !=undefined then (
+	--clearSelection()
+	prefixname=FBXrollout.namespacelist.selected
+	if index >1 then (
+		prefixobj = execute ("$'"+prefixname+"*'")
 		select prefixobj
 		for i in 1 to prefixobj.count do(
 			append objlist prefixobj[i].name
@@ -187,7 +208,7 @@ function readDataOnXML source:undefined=(
 			exsits=appendIfUnique source i
 			--print exsits
 			if exsits==false then (
-				messageBox(i+ "  exsits")
+				messageBox(i+ "exsits")
 			)
 		)
 		return source
@@ -263,7 +284,7 @@ function RemovePresetList source:undefined selection:undefined selected:undefine
 
 function RenamePresetList source:undefined selection:undefined selected:undefined presetname:undefined=(
 	if selected !="None" and (findItem source presetname)==0 then(
-		print presetname
+		--print presetname
 		source[selection]=presetname
 		--change the key of dic
 		preset_dic.Add presetname preset_dic.item[selected]
@@ -360,8 +381,9 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	checkBox selectionsetscheck "Using Selection Sets:" pos:[16,120] width:132 checked:false
 	dropDownlist selectionsetslist pos:[150,117] items:selectionsets_item width: 160 height: 30
 	checkBox namespacecheck "Using Name Space:" pos:[16,150] width:132 checked:false
-	EditText namespaceTxt pos:[148,150] fieldWidth:100 height:10
-	button namespaceBtn "Select" pos:[260,149] width:50 height:20
+	dropDownlist namespacelist pos:[150,148] items:namespace_item width: 160 height: 30
+	--EditText namespaceTxt pos:[148,150] fieldWidth:100 height:10
+	--button namespaceBtn "Select" pos:[260,149] width:50 height:20
 	CheckBox sceneselectioncheck "Using Scene Selection" pos:[16,180] width:132 checked:true
 	CheckBox presetcheck "Using Preset" pos:[16,210] width:132 checked:false
 	button exportxmlBtn "Save as XML File" pos:[55,235] width:230 height:25
@@ -411,17 +433,20 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		--set the default unit to centimeter when initialize the gui
 		UnitList.selection=5
 		systemunitsetup index:5 
-		namespaceTxt.enabled=false
-		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
-		--update presetList
-		presetList.items=preset_item
+		namespacelist.enabled=false
 		--register callbacks for selectionsets
 		registercallbacks()
 		--initialize the list for selectionsets
 		UpdateSelSets()
 		--initialize the objlist for sceneselection
 		UpdateSceneSel()
+		--update presetList
+		presetList.items=preset_item
+		--update namespacelist
+		--initialize namespacelist
+		UpdateNamespaceList()
+		namespacelist.items=namespace_item
 	)
 
 	on FBXrollout close do (
@@ -433,13 +458,12 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
 		selectionsetscheck.checked=true
 		selectionsetscheck.enabled=true
-		namespaceTxt.enabled=false
-		namespaceBtn.enabled=false
 		selectionsetslist.enabled=true
 		--update current selectionSets
 		SelectbySelsets index: selectionsetslist.selection
-		--reset namespace
-		namespaceTxt.text=""
+		--reset namespacelist to none
+		namespacelist.enabled=false
+		namespacelist.selection=1
 
 	)
 
@@ -448,21 +472,20 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		SelectbySelsets index:index
 	)
 
+	on namespacelist selected index do (
+		SelectbyNamespace index:index
+	)
+
 	on namespacecheck changed status do(
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
 		namespacecheck.checked=true
 		namespacecheck.enabled=true
-		namespaceTxt.enabled=true
-		namespaceBtn.enabled=true
+		namespacelist.enabled=true
 		--update current namespace
-		SelectbyNamespace prefixname:namespaceTxt.text
+		SelectbyNamespace index:namespacelist.selection
 		--reset selectionsetlist to none
 		selectionsetslist.enabled=false
 		selectionsetslist.selection=1
-	)
-
-	on namespaceBtn pressed do(
-		SelectbyNamespace prefixname:namespaceTxt.text
 	)
 
 
@@ -470,14 +493,13 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
 		sceneselectioncheck.checked=true
 		sceneselectioncheck.enabled=true
-		namespaceTxt.enabled=false
-		namespaceBtn.enabled=false
 		selectionsetslist.enabled=false
 		--reset selectionsetlist to none
 		selectionsetslist.enabled=false
 		selectionsetslist.selection=1
-		--reset namespace
-		namespaceTxt.text=""
+		--reset namespacelist to none
+		namespacelist.enabled=false
+		namespacelist.selection=1
 		--update scene selection
 		UpdateSceneSel()
 	)
@@ -485,9 +507,12 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
 		presetcheck.checked=true
 		presetcheck.enabled=true
-		namespaceTxt.enabled=false
-		namespaceBtn.enabled=false
+		--reset selectionsetlist to none
 		selectionsetslist.enabled=false
+		selectionsetslist.selection=1
+		--reset namespacelist to none
+		namespacelist.enabled=false
+		namespacelist.selection=1
 		--update Preset
 		SelectbyPresetlist presetname:presetlist.selected
 	)
@@ -519,7 +544,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	)
 	on expBtn pressed do (
 		outputpath= expPathTxt.text + "\\" + filename.text
-		print outputpath
+		--print outputpath
 		exportFBX output: outputpath
 	)
 
