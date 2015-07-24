@@ -7,6 +7,7 @@ global preset_dic=dotNetObject "System.Collections.Hashtable"
 global prefix_dic=dotNetObject "System.Collections.HashTable"
 --default export path
 global defaultpath=pathConfig.getProjectSubDirectory 3
+global defaultunit=5
 global presetholder=getNodeByName "PresetHolder"
 global selectionsets_item=#("None")
 global namespace_item=#("None")
@@ -150,6 +151,7 @@ function SelectbyPresetlist presetname:undefined=(
 		tempitem=preset_dic.item[presetname]
 		--unpack item #(filename, savepath, meshlist)
 		FBXrollout.fileName.text=tempitem[1]
+		defaultpath=tempitem[2]
 		FBXrollout.expPathTxt.text=tempitem[2]
 		if FBXrollout.presetcheck.checked then (
 			objlist=tempitem[3]
@@ -168,7 +170,7 @@ function SelectbyPresetlist presetname:undefined=(
 		clearSelection()
 		objlist=#()
 		FBXrollout.fileName.text=""
-		FBXrollout.expPathTxt.text=defaultpath
+		FBXrollout.expPathTxt.text=defaultpath --none can be used as this directory (pathConfig.getProjectSubDirectory 3)
 	)
 )
 
@@ -366,6 +368,7 @@ function systemunitsetup index:undefined=(
 		6: units.SystemType=#Meters
 		7: units.SystemType=#Kilometers
 	)
+	defaultunit=index
 )
 
 global FBXrollout
@@ -431,8 +434,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 
 	on FBXrollout open do (
 		--set the default unit to centimeter when initialize the gui
-		UnitList.selection=5
-		systemunitsetup index:5 
+		UnitList.selection=defaultunit
+		systemunitsetup index:defaultunit 
 		selectionsetslist.enabled=false
 		namespacelist.enabled=false
 		--register callbacks for selectionsets
@@ -523,6 +526,7 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 		p=getSavePath caption:"Defined Output Path" initialDir:expPathTxt.text
 			if p!=undefined then (
 				expPathTxt.text=p
+				defaultpath=p
 			)
 	)
 
