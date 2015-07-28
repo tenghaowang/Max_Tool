@@ -13,6 +13,7 @@ global selectionsets_item=#("None")
 global namespace_item=#("None")
 global preset_item=#("None")
 global objlist=#() 
+global FBXrollout
 
 --print presetfolder
 function createdummy=(
@@ -371,11 +372,12 @@ function systemunitsetup index:undefined=(
 	defaultunit=index
 )
 
-global FBXrollout
+--global FBXrollout
 
 rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 (
-	editText fileName "Filename" pos:[8,8] width:312 height:16
+	editText fileName "Filename" pos:[8,12] width:200 height:16
+	button copysceneBtn "Copy Scenename" pos:[212,9] width:108 height:24
 	label exportPathLabel "Export Path:" pos:[16,40] width:200 height:20 
 	editText expPathTxt "" text:defaultpath pos:[8,60] fieldWidth: 216 height:18
 	button browseBtn "Browse" pos:[232,56] width:88 height:24
@@ -455,8 +457,8 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	on FBXrollout close do (
 		--remove callbacks for selectionsets
 		removecallbacks()
-
 	)
+
 	on selectionsetscheck changed status do(
 		resetcheckstatus checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck 
 		selectionsetscheck.checked=true
@@ -522,6 +524,13 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	on exportxmlBtn pressed do (
 		saveDataOnXML checkbx0: selectionsetscheck checkbx1: namespacecheck checkbx2: sceneselectioncheck checkbx3:presetcheck
 	)
+
+	on copysceneBtn pressed do(
+		scenename = getFilenameFile maxFileName
+		--print scenename
+		filename.text=scenename
+	)
+
 	on browseBtn pressed do(
 		p=getSavePath caption:"Defined Output Path" initialDir:expPathTxt.text
 			if p!=undefined then (
