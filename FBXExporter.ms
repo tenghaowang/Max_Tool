@@ -374,13 +374,13 @@ function systemunitsetup index:undefined=(
 
 --global FBXrollout
 
-rollout FBXrollout "FBX Export Tool" width: 328 height: 600
+rollout FBXrollout "FBX Exporter" width: 328 height: 640
 (
-	editText fileName "Filename" pos:[8,12] width:200 height:16
-	button copysceneBtn "Copy Scenename" pos:[212,9] width:108 height:24
+	editText fileName "Filename" pos:[8,12] width:210 height:16
+	button copysceneBtn "Copy Scenename" pos:[222,9] width:98 height:24
 	label exportPathLabel "Export Path:" pos:[16,40] width:200 height:20 
-	editText expPathTxt "" text:defaultpath pos:[8,60] fieldWidth: 216 height:18
-	button browseBtn "Browse" pos:[232,56] width:88 height:24
+	editText expPathTxt "" text:defaultpath pos:[8,60] fieldWidth: 206 height:18
+	button browseBtn "Browse" pos:[222,56] width:98 height:24
 	--selection sets
 	GroupBox grpset "Selection" pos:[8,88] width:312 height:190
 	checkBox selectionsetscheck "Using Selection Sets:" pos:[16,120] width:132 checked:false
@@ -402,7 +402,13 @@ rollout FBXrollout "FBX Export Tool" width: 328 height: 600
 	groupBox grpUnitSetup "System Unit Setup:" pos:[8,460] width:312 height:60
 	label UnitSetupLabel "1 Unit = 1.0" pos:[60,485] 
 	dropDownlist UnitList "" pos:[128,482] width:150 height:41 items:#("Inches","Feet","Miles","Millimeters","Centimeters","Meters","Kilometers")
-	button expBtn "Export File" pos:[16,535] width:296 height:30
+	groupBox grpTexture "Texture Export" pos:[8,530] width:312 height:140
+	checkbox copyTexChk "Copy Texture" pos:[16,550] width:312 height: 16
+	radioButtons texOptionRB "Texture Path:" pos:[16,570] width:261 height:56 labels:#("Automatically create path(Export Path/Texture)","Manually configure path") columns:1
+	editText texPathTxt "" pos:[16,625] width:216 height:16
+	button browseTexPathBtn "Browse" pos:[240,623] width:72 height:20
+	--label texSourceLabel "Configure texture "
+	button expBtn "Export File" pos:[16,680] width:296 height:30
 
 
 	function UpdateSelSets =(
@@ -579,7 +585,7 @@ utility LT_FBX_Exporter "LT_FBX_Exporter"
 		try (closeRolloutFloater expFloater) catch()
 		createdummy()
 		loadDatafromXML()
-		expFloater=newRolloutFloater "FbxExporter" 336 610
+		expFloater=newRolloutFloater "FbxExporter" 336 700
 		addRollout FBXrollout expFloater
 	)
 	
